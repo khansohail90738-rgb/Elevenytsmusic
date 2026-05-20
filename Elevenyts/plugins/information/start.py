@@ -136,7 +136,7 @@ async def _new_member(_, message: types.Message):
     - Leaves non-supergroup chats
     - Adds new groups to database
     """
-    # Only work in supergroups (not basic groups)
+    # Only work in supergroups (not basic groups)..
     if message.chat.type != enums.ChatType.SUPERGROUP:
         return await message.chat.leave()
 
