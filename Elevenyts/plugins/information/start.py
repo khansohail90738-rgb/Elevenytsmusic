@@ -1,32 +1,56 @@
 # start.py - Start Command and Basic Bot Interactions
 
 from pyrogram import enums, errors, filters, types
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from Elevenyts import app, config, db, lang
 from Elevenyts.helpers import buttons, utils
 
 
+# ==============================
+# DIGITAL STYLE THEME
+# ==============================
+
+DIGITAL_LINE = "━━━━━━━━━━━━━━━━━━"
+DIGITAL_EMOJI = "⚡"
+
+
 @app.on_message(filters.command(["help"]) & filters.private & ~app.bl_users)
 @lang.language()
 async def _help(_, m: types.Message):
-    """Handle /help command in private chats - shows help menu with image."""
-    # Auto-delete command message
+    """Handle /help command with digital styled menu."""
+
     try:
         await m.delete()
     except Exception:
         pass
-    
+
+    help_caption = f"""
+{DIGITAL_LINE}
+{DIGITAL_EMOJI} **{app.name} DIGITAL HELP MENU**
+{DIGITAL_LINE}
+
+🎵 **Advanced Music Features**
+🎧 High Quality Streaming
+⚙️ Smart Group Controls
+🚀 Fast & Smooth Performance
+
+💡 Use buttons below to explore commands.
+
+{DIGITAL_LINE}
+"""
+
     try:
         await m.reply_photo(
-            photo=config.START_IMG,  # Use same image as start command
-            caption=m.lang["help_menu"],
+            photo=config.START_IMG,
+            caption=help_caption,
             reply_markup=buttons.help_markup(m.lang),
             quote=True,
         )
+
     except Exception:
-        # Fallback to text if photo fails
         await m.reply_text(
-            text=m.lang["help_menu"],
+            text=help_caption,
             reply_markup=buttons.help_markup(m.lang),
             quote=True,
         )
@@ -36,43 +60,94 @@ async def _help(_, m: types.Message):
 @lang.language()
 async def start(_, message: types.Message):
     """
-    Handle /start command - welcome message for users.
-
-    - In private chat: Shows welcome message with inline buttons
-    - In group chat: Shows short welcome message
-    - Adds new users to database
-    - Sends log to logger group for new users
+    Digital styled start command.
     """
-    # Auto-delete command message in group chats
+
     if message.chat.type != enums.ChatType.PRIVATE:
         try:
             await message.delete()
         except Exception:
             pass
-    
-    # Skip if message from channel or anonymous admin
+
     if not message.from_user:
         return
 
-    # Check if user is blacklisted
-    if message.from_user.id in app.bl_users and message.from_user.id not in db.notified:
-        return await message.reply_text(message.lang["bl_user_notify"])
+    # Blacklist check
+    if (
+        message.from_user.id in app.bl_users
+        and message.from_user.id not in db.notified
+    ):
+        return await message.reply_text(
+            "❌ You are blocked from using this bot."
+        )
 
-    # If /start help, show help menu
+    # Help Menu
     if len(message.command) > 1 and message.command[1] == "help":
         return await _help(_, message)
 
-    # Determine if chat is private or group
     private = message.chat.type == enums.ChatType.PRIVATE
 
-    # Choose appropriate welcome message
-    _text = (
-        message.lang["start_pm"].format(message.from_user.first_name, app.name)
-        if private
-        else message.lang["start_gp"].format(app.name)
+    # ==============================
+    # DIGITAL START MESSAGE
+    # ==============================
+
+    if private:
+        _text = f"""
+{DIGITAL_LINE}
+⚡ **WELCOME TO {app.name.upper()}**
+{DIGITAL_LINE}
+
+👋 Hello {message.from_user.first_name}
+
+🎵 Premium Music Experience
+🚀 Ultra Fast Streaming
+💎 Smart Digital Player
+
+➥ Add me to your group
+➥ Promote me as admin
+➥ Enjoy lag free music
+
+{DIGITAL_LINE}
+"""
+    else:
+        _text = f"""
+{DIGITAL_LINE}
+⚡ **{app.name.upper()} CONNECTED**
+🎵 Ready To Play Music
+{DIGITAL_LINE}
+"""
+
+    # ==============================
+    # DIGITAL BUTTONS
+    # ==============================
+
+    key = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "➕ Add Me",
+                    url=f"https://t.me/{app.username}?startgroup=true",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📚 Help",
+                    callback_data="help_back"
+                ),
+                InlineKeyboardButton(
+                    "⚙️ Settings",
+                    callback_data="settings_back"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Support",
+                    url="https://t.me/YourSupportGroup"
+                )
+            ],
+        ]
     )
 
-    key = buttons.start_key(message.lang, private)
     try:
         await message.reply_photo(
             photo=config.START_IMG,
@@ -80,48 +155,69 @@ async def start(_, message: types.Message):
             reply_markup=key,
             quote=not private,
         )
+
     except errors.ChatSendPhotosForbidden:
-        # If photos are not allowed, send text only
         await message.reply_text(
             text=_text,
             reply_markup=key,
             quote=not private,
         )
 
-    # For private chats, add user to database if new
+    # ==============================
+    # USER DATABASE
+    # ==============================
+
     if private:
         if await db.is_user(message.from_user.id):
-            return  # User already exists, no need to add
-        # Log new user to logger group
+            return
+
         await utils.send_log(message)
-        # Add user to database
         return await db.add_user(message.from_user.id)
 
 
-@app.on_message(filters.command(["playmode", "settings"]) & filters.group & ~app.bl_users)
+@app.on_message(
+    filters.command(["playmode", "settings"])
+    & filters.group
+    & ~app.bl_users
+)
 @lang.language()
 async def settings(_, message: types.Message):
     """
-    Handle /playmode or /settings command - show group settings.
-
-    Displays:
-    - Play mode (everyone or admin only)
-    - Current language
-    - Options to change settings
+    Digital settings menu.
     """
-    # Auto-delete command message
+
     try:
         await message.delete()
     except Exception:
         pass
-    
-    admin_only = await db.get_play_mode(message.chat.id)  # Get play mode setting
-    _language = "en"
+
+    admin_only = await db.get_play_mode(message.chat.id)
+
+    settings_text = f"""
+{DIGITAL_LINE}
+⚙️ **DIGITAL SETTINGS PANEL**
+{DIGITAL_LINE}
+
+🏷️ Group : {message.chat.title}
+
+🎵 Play Mode :
+{'Admins Only' if admin_only else 'Everyone'}
+
+🌐 Language : English
+
+💡 Manage your music system below.
+
+{DIGITAL_LINE}
+"""
+
     await utils.safe_text(
         message,
-        message.lang["start_settings"].format(message.chat.title),
+        settings_text,
         reply_markup=buttons.settings_markup(
-            message.lang, admin_only, _language, message.chat.id
+            message.lang,
+            admin_only,
+            "en",
+            message.chat.id,
         ),
         quote=True,
     )
@@ -131,19 +227,38 @@ async def settings(_, message: types.Message):
 @lang.language()
 async def _new_member(_, message: types.Message):
     """
-    Handle new member events - detect when bot is added to groups.
-
-    - Leaves non-supergroup chats
-    - Adds new groups to database
+    Detect bot added in groups.
     """
-    # Only work in supergroups (not basic groups)
+
     if message.chat.type != enums.ChatType.SUPERGROUP:
         return await message.chat.leave()
 
-    # Check each new member
     for member in message.new_chat_members:
-        if member.id == app.id:  # Bot itself was added
+        if member.id == app.id:
+
+            welcome_text = f"""
+{DIGITAL_LINE}
+⚡ **THANKS FOR ADDING {app.name.upper()}**
+{DIGITAL_LINE}
+
+🎵 Music System Activated
+🚀 Ready For Streaming
+
+💎 Give Admin Permission
+🎧 Start Playing Songs
+
+{DIGITAL_LINE}
+"""
+
+            try:
+                await message.reply_photo(
+                    photo=config.START_IMG,
+                    caption=welcome_text,
+                )
+            except Exception:
+                await message.reply_text(welcome_text)
+
             if await db.is_chat(message.chat.id):
-                return  # Chat already in database
-            # Add chat to database (log is sent from new_chat.py with photo)
+                return
+
             await db.add_chat(message.chat.id)
